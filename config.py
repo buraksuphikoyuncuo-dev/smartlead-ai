@@ -12,7 +12,8 @@ class Config:
     DATABASE_PATH = os.path.join(BASE_DIR, 'smartlead.db')
     DATABASE = os.path.join(BASE_DIR, 'smartlead.db')
     
-    # Gemini / Yapay Zekâ API Ayarları
+    # Yapay Zekâ / Groq API Ayarları
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
     
     # MECHX DESIGN İş Kuralları ve Sistem Promptu
