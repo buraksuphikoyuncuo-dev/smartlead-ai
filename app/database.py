@@ -1,10 +1,15 @@
 import sqlite3
+import os
 from flask import g, current_app
+
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'smartlead.db')
 
 def get_db():
     if 'db' not in g:
+        # Config içinde varsa onu alır, yoksa doğrudan DB_FILE yolunu kullanır (KeyError vermez)
+        db_path = current_app.config.get('DATABASE') or current_app.config.get('DATABASE_PATH') or DB_FILE
         g.db = sqlite3.connect(
-            current_app.config['DATABASE'],
+            db_path,
             detect_types=sqlite3.PARSE_DECLTYPES
         )
         g.db.row_factory = sqlite3.Row
@@ -18,7 +23,6 @@ def close_db(e=None):
 def init_db(app):
     with app.app_context():
         db = get_db()
-        # Tablo yoksa oluşturur, varsa eksik sütunları güvenle ekler
         db.execute('''
             CREATE TABLE IF NOT EXISTS leads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +33,7 @@ def init_db(app):
                 tarih TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        # Mevcut veritabanında eposta sütunu yoksa ekler (hata vermez)
+        # Tablo daha önceden eposta sütunu olmadan oluştuysa güvenle ekler
         try:
             db.execute('ALTER TABLE leads ADD COLUMN eposta TEXT')
         except sqlite3.OperationalError:
@@ -38,7 +42,6 @@ def init_db(app):
 
 def lead_ekle(isim, telefon, eposta="", feedback="", mesaj=""):
     db = get_db()
-    # feedback veya mesaj ikisinden biri doluysa onu kaydeder
     not_icerik = feedback if feedback else mesaj
     cursor = db.execute(
         'INSERT INTO leads (isim, eposta, telefon, mesaj) VALUES (?, ?, ?, ?)',
