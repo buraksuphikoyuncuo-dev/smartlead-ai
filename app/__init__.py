@@ -9,8 +9,7 @@ def create_app(config_name='default'):
     
     app.config.from_object(config_dict[config_name])
 
-    CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS', '*')}})
-
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
     init_db(app)
 
     app.teardown_appcontext(close_db)

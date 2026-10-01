@@ -18,9 +18,12 @@ def dashboard():
     return render_template('dashboard.html')
 
 # --- API ROTALARI ---
-@api_bp.route('/sohbet', methods=['POST'])
+@api_bp.route('/sohbet', methods=['POST', 'OPTIONS'])
 def sohbet():
     """Kullanıcıdan gelen mesajı yapay zekâ servisine iletir."""
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
     veri = request.get_json() or {}
     mesaj = veri.get('mesaj', '').strip()
     gecmis = veri.get('gecmis', [])
@@ -34,33 +37,52 @@ def sohbet():
     except AIServiceError as e:
         return jsonify({"basari": False, "hata": str(e)}), 503
 
-@api_bp.route('/leads', methods=['POST'])
-def yeni_lead():
-    """Yeni bir müşteri adayı kaydeder."""
-    veri = request.get_json() or {}
-    isim = veri.get('isim', '').strip()
-    telefon = veri.get('telefon', '').strip()
-    mesaj = veri.get('mesaj', '').strip()
+@api_bp.route('/leads', methods=['GET', 'POST', 'OPTIONS'])
+def leads_yonetimi():
+    """Müşteri adaylarını kaydeder veya listeler."""
+    # CORS ön kontrol isteği (Browser Preflight)
+    if request.method == 'OPTIONS':
+        return ('', 204)
 
-    # İsim ve telefon zorunludur
-    if not isim or not telefon:
-        return jsonify({"basari": False, "hata": "İsim ve telefon alanları zorunludur."}), 400
+    # 1. YENİ KAYIT EKLEME (POST)
+    if request.method == 'POST':
+        veri = request.get_json() or {}
+        isim = veri.get('isim', '').strip()
+        telefon = veri.get('telefon', '').strip()
+        eposta = veri.get('eposta', '').strip()
+        feedback = veri.get('feedback', '').strip()
+        mesaj = veri.get('mesaj', '').strip()
 
-    try:
-        yeni_id = lead_ekle(isim=isim, telefon=telefon, mesaj=mesaj)
-        return jsonify({
-            "basari": True,
-            "mesaj": "Kaydınız başarıyla alındı.",
-            "lead_id": yeni_id
-        }), 201
-    except Exception as e:
-        return jsonify({"basari": False, "hata": f"Veritabanı hatası: {str(e)}"}), 500
+        # İsim ve telefon zorunludur
+        if not isim or not telefon:
+            return jsonify({"basari": False, "hata": "İsim ve telefon alanları zorunludur."}), 400
 
-@api_bp.route('/leads', methods=['GET'])
-def lead_listesi():
-    """Tüm müşteri adaylarını döndürür."""
+        try:
+            # Not: Veritabanı fonksiyonunuz ek alanları alacak şekilde parametrelere aktarılır
+            yeni_id = lead_ekle(isim=isim, telefon=telefon, eposta=eposta, feedback=feedback, mesaj=mesaj)
+            return jsonify({
+                "basari": True,
+                "mesaj": "Kaydınız başarıyla alındı.",
+                "lead_id": yeni_id
+            }), 201
+        except TypeError:
+            # Eğer database.py henüz eposta/feedback parametresi almıyorsa geriye dönük uyumluluk:
+            yeni_id = lead_ekle(isim=isim, telefon=telefon, mesaj=mesaj)
+            return jsonify({
+                "basari": True,
+                "mesaj": "Kaydınız başarıyla alındı.",
+                "lead_id": yeni_id
+            }), 201
+        except Exception as e:
+            return jsonify({"basari": False, "hata": f"Veritabanı hatası: {str(e)}"}), 500
+
+    # 2. KAYITLARI LİSTELEME (GET)
     try:
         kayitlar = tum_leadler()
-        return jsonify({"basari": True, "data": kayitlar}), 200
+        return jsonify({
+            "basari": True,
+            "leads": kayitlar,
+            "data": kayitlar
+        }), 200
     except Exception as e:
         return jsonify({"basari": False, "hata": f"Veritabanı hatası: {str(e)}"}), 500
