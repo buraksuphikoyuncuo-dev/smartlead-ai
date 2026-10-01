@@ -2,66 +2,64 @@ import sqlite3
 from flask import g, current_app
 
 def get_db():
-    """Mevcut istek için veritabanı bağlantısı açar veya var olanı döner."""
     if 'db' not in g:
-        db_path = current_app.config.get('DATABASE_URL', 'smartlead.db')
-        g.db = sqlite3.connect(db_path)
-        # Tablodan gelen verilerin isimleriyle (sütun adı) okunabilmesini sağlar
+        g.db = sqlite3.connect(
+            current_app.config['DATABASE'],
+            detect_types=sqlite3.PARSE_DECLTYPES
+        )
         g.db.row_factory = sqlite3.Row
     return g.db
 
 def close_db(e=None):
-    """İstek tamamlandığında bağlantıyı kapatır."""
     db = g.pop('db', None)
     if db is not None:
         db.close()
 
 def init_db(app):
-    """Uygulama açılırken 'leads' tablosunu oluşturur (yoksa)."""
     with app.app_context():
         db = get_db()
-        # id otomatik artar, isim ve telefon zorunludur
+        # Tablo yoksa oluşturur, varsa eksik sütunları güvenle ekler
         db.execute('''
             CREATE TABLE IF NOT EXISTS leads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 isim TEXT NOT NULL,
+                eposta TEXT,
                 telefon TEXT NOT NULL,
                 mesaj TEXT,
                 tarih TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Mevcut veritabanında eposta sütunu yoksa ekler (hata vermez)
+        try:
+            db.execute('ALTER TABLE leads ADD COLUMN eposta TEXT')
+        except sqlite3.OperationalError:
+            pass
         db.commit()
 
-def lead_ekle(isim, telefon, mesaj=""):
-    """
-    Yeni müşteri adayı kaydeder.
-    SQL Injection açığını engellemek için ? yer tutucusu kullanılmıştır.
-    """
+def lead_ekle(isim, telefon, eposta="", feedback="", mesaj=""):
     db = get_db()
-    cursor = db.cursor()
-    cursor.execute(
-        "INSERT INTO leads (isim, telefon, mesaj) VALUES (?, ?, ?)",
-        (isim, telefon, mesaj)
+    # feedback veya mesaj ikisinden biri doluysa onu kaydeder
+    not_icerik = feedback if feedback else mesaj
+    cursor = db.execute(
+        'INSERT INTO leads (isim, eposta, telefon, mesaj) VALUES (?, ?, ?, ?)',
+        (isim, eposta, telefon, not_icerik)
     )
     db.commit()
     return cursor.lastrowid
 
 def tum_leadler():
-    """Kayıtlı tüm müşterileri en yeni tarihten en eskiye doğru getirir."""
     db = get_db()
-    cursor = db.execute(
-        "SELECT id, isim, telefon, mesaj, tarih FROM leads ORDER BY tarih DESC"
-    )
-    rows = cursor.fetchall()
-    
-    # Gelen veriyi standart Python sözlük listesine çeviriyoruz
-    sonuclar = []
-    for r in rows:
-        sonuclar.append({
-            "id": r["id"],
-            "isim": r["isim"],
-            "telefon": r["telefon"],
-            "mesaj": r["mesaj"],
-            "tarih": str(r["tarih"])
-        })
-    return sonuclar
+    cursor = db.execute('SELECT id, isim, eposta, telefon, mesaj, tarih FROM leads ORDER BY id DESC')
+    satirlar = cursor.fetchall()
+    return [
+        {
+            "id": row["id"],
+            "isim": row["isim"],
+            "eposta": row["eposta"] if "eposta" in row.keys() and row["eposta"] else "-",
+            "telefon": row["telefon"],
+            "feedback": row["mesaj"] if row["mesaj"] else "-",
+            "mesaj": row["mesaj"] if row["mesaj"] else "-",
+            "tarih": str(row["tarih"])
+        }
+        for row in satirlar
+    ]
