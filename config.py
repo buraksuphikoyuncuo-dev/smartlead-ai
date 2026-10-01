@@ -1,37 +1,41 @@
 import os
 from dotenv import load_dotenv
 
-# .env dosyasındaki değişkenleri sisteme yükler
+# .env dosyasını yükle
 load_dotenv()
 
-class Config:
-    """Temel ayar sınıfı - Tüm modüller ayarları buradan okur."""
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'varsayilan-anahtar')
-    DATABASE_URL = os.environ.get('DATABASE_URL', 'smartlead.db')
-    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-    AI_PROVIDER = os.environ.get('AI_PROVIDER', 'groq')
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*')
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-    # Yapay zekânın kimliği ve işletme kuralları
-    BUSINESS_CONTEXT = os.environ.get(
-        'BUSINESS_CONTEXT',
-        """Sen MECHX Design mühendislik ve mekanik tasarım ofisinin akıllı müşteri asistanısın.
-Görevlerin:
-1. Ziyaretçilere 3D modelleme, CAD tasarımı, mekanik simülasyon ve prototip geliştirme hizmetlerimizi tanıtmak.
-2. Ziyaretçilerin sorularına daima Türkçe, kibar, profesyonel ve güven verici bir tonda yanıt vermek.
-3. Projelerine teklif alabilmeleri veya ön görüşme ayarlayabilmeleri için onları ad, telefon ve proje detayı bırakmaya nazikçe yönlendirmek.
-Fiyat tekliflerini doğrudan verme; iletişim bilgilerini aldığında uzman ekibimizin 24 saat içinde dönüş yapacağını belirt."""
-    )
+class Config:
+    """Temel konfigürasyon sınıfı."""
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'smartlead-gizli-anahtar-2026')
+    DATABASE_PATH = os.path.join(BASE_DIR, 'smartlead.db')
+    DATABASE = os.path.join(BASE_DIR, 'smartlead.db')
+    
+    # Gemini / Yapay Zekâ API Ayarları
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+    
+    # MECHX DESIGN İş Kuralları ve Sistem Promptu
+    BUSINESS_CONTEXT = """
+Sen MECHX DESIGN adlı mühendislik ve tasarım firmasının akıllı müşteri asistanısın.
+
+GÖREVLERİN VE KURALLARIN:
+1. Dil ve Ton: Ziyaretçilerin sorularına daima Türkçe, son derece kibar, profesyonel, teknik olarak yetkin ve güven verici bir tonda yanıt ver.
+2. Hizmetleri Tanıtma: Ziyaretçilere MECHX DESIGN olarak sunduğumuz temel hizmetleri (3D Modelleme, CAD Tasarımı, Mekanik Simülasyon ve Prototip Geliştirme) KISACA, net ve anlaşılır biçimde özetle. Yanıtları gereksiz teknik detaylarla boğma.
+3. Teklif ve Yönlendirme (Temel Hedef): Projelerine özel teklif alabilmeleri, teknik fizibilite değerlendirmesi yaptırabilmeleri veya ön görüşme ayarlayabilmeleri için ziyaretçileri sayfada yer alan iletişim/lead formunu (İsim, Telefon, E-posta ve Not) doldurup göndermeye nazikçe teşvik et.
+4. Fiyat ve Kesin Süre Kısıtı: Kesin fiyat veya kesin teslim tarihi taahhüdünde bulunma; bu tür detayların CAD modellerinin ve teknik şartnamenin incelenmesiyle netleşeceğini belirterek iletişim formunu işaret et.
+"""
 
 class DevelopmentConfig(Config):
+    """Geliştirme ortamı ayarları."""
     DEBUG = True
 
 class ProductionConfig(Config):
+    """Canlı (Render/Production) ortamı ayarları."""
     DEBUG = False
 
-# Uygulama fabrikasının ortam seçebilmesi için sözlük yapısı
 config_dict = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
-    'default': DevelopmentConfig
+    'default': ProductionConfig
 }
